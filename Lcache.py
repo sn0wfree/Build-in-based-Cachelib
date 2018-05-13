@@ -7,25 +7,48 @@
 
 import collections
 import functools
-
+from collections import OrderedDict
 # LFUCache(Least Frequently Used (LFU) cache implementation.)
 # LRUCache(Least Recently Used (LRU) cache implementation.)
 # RRCache(Random Replacement (RR) cache implementation.)
 # TTLCAche(LRU Cache implementation with per-item time-to-live (TTL) value.)
 
 
-def cache(func):
-    memo = {}
+class LastUpdatedOrderedDict(OrderedDict):
 
-    def _wrapper(*args):
-        res = memo.get(args, None)
-        if res is not None:
-            return res
+    def __init__(self, capacity):
+        super(LastUpdatedOrderedDict, self).__init__()
+        self._capacity = capacity
+
+    def __setitem__(self, key, value):
+        containsKey = 1 if key in self else 0
+        if len(self) - containsKey >= self._capacity:
+            last = self.popitem(last=False)
+            # print 'remove:', last
+        if containsKey:
+            del self[key]
+            # print 'set:', (key, value)
         else:
-            res = func(*args)
-            memo[args] = res
-        return res
-    return _wrapper
+            pass
+            # print 'add:', (key, value)
+        OrderedDict.__setitem__(self, key, value)
+
+
+def Lcache(capacity=250):
+    # LRU
+    memo = LastUpdatedOrderedDict(capacity)
+
+    def cache(func):
+        def _wrapper(*args):
+            res = memo.get(args, None)
+            if res is not None:
+                return res
+            else:
+                res = func(*args)
+                memo[args] = res
+            return res
+        return _wrapper
+    return cache
 
 # __slots__ = ('key', 'timeout', 'last_time', 'value')
 
@@ -70,7 +93,7 @@ class valueCahce(object):
         return functools.partial(self.__call__, obj)
 
 
-@cache
+@cLcache
 def fib(n):
     if n <= 1:
         return n
