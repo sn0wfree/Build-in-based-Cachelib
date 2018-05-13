@@ -1,30 +1,26 @@
 # -*- coding:utf-8 -*-
-import time
-import gc
+# this is main function for creating inherit cache system via
+# decorator
+# Black magic
+#
+#
 try:
     import cPickle as pickle
 except ImportError:  # pragma: no cover
     import pickle
 from collections import OrderedDict
 
-# this is main function for creating inherit cache system via
-# decorator
-# Black magic
-#
-#
 # LFUCache(Least Frequently Used (LFU) cache implementation.)
 # LRUCache(Least Recently Used (LRU) cache implementation.)
 # RRCache(Random Replacement (RR) cache implementation.)
 # TTLCAche(LRU Cache implementation with per-item time-to-live (TTL) value.)
-
 
 class LRUDict_UnPickled(OrderedDict):
     # this is the original dict for cache or LRU function
     # it will set up capacity ,default as 250, and if the length of current dict
     # is large than the value of parameter of capacity, then the old key-value will
     # be deleted and recevie the one
-    __slots__ = ('_capacity')
-
+    __slots__=('_capacity')
     def __init__(self, capacity=250):
         super(LRUDict_UnPickled, self).__init__()
         self._capacity = capacity
@@ -33,11 +29,9 @@ class LRUDict_UnPickled(OrderedDict):
         containsKey = 1 if key in self else 0
         if len(self) - containsKey >= self._capacity:
             last = self.popitem(last=False)
-
             # print 'remove:', last
         if containsKey:
             del self[key]
-
             # print 'set:', (key, value)
         else:
             pass
@@ -45,11 +39,10 @@ class LRUDict_UnPickled(OrderedDict):
         OrderedDict.__setitem__(self, key, value)
 
 
-class LRUDict(OrderedDict):
-    __slots__ = ('_capacity')
-
+class LRUDict_Pickled(OrderedDict):
+    __slots__=('_capacity')
     def __init__(self, capacity=250, Pickled=True):
-        super(LRUDict, self).__init__()
+        super(LRUDict_Pickled, self).__init__()
         self._capacity = capacity
         self.save_func = self.picklesave if Pickled else self.normalsave
         self.load_func = self.pickleload if Pickled else self.normalload
@@ -58,7 +51,6 @@ class LRUDict(OrderedDict):
         containsKey = 1 if key in self else 0
         if len(self) - containsKey >= self._capacity:
             self.popitem(last=False)
-
             # remove
             # print 'remove:', last
         if containsKey:
@@ -73,7 +65,7 @@ class LRUDict(OrderedDict):
 
     def __getitem__(self, key):
 
-        pickled_value = OrderedDict.__getitem__(self, key)
+        pickled_value = OrderedDict.__getitem__(self,key)
         return self.load_func(pickled_value)
         # try:
         #     return pickle.loads(value)
@@ -91,7 +83,7 @@ class LRUDict(OrderedDict):
 
     def pickleload(self, pickled_value):
         try:
-            return pickle.loads(pickled_value, pickle.HIGHEST_PROTOCOL)
+            return pickle.loads(value, pickle.HIGHEST_PROTOCOL)
         except (KeyError, pickle.PickleError):
             return None
         # ------------------
@@ -159,29 +151,39 @@ class BaseCacheClass(object):
 
 class DictCache_LRUTTL(BaseCacheClass):
 
-    def __init__(self, capacity=250, Pickled=True, default_timeout=300):
-        super(LRUDict, self).__init__()
-        self.default_timeout = default_timeout
-        self._capacity = capacity
-        self.save_func = self.picklesave if Pickled else self.normalsave
-        self.load_func = self.pickleload if Pickled else self.normalload
+    def __init__(self, capacity=250, default_timeout=300,):
+        BaseCacheClass.__init__(self, default_timeout)
 
-    def set_default_timeout(self, timeout):
-        self.default_timeout = timeout if isinstance(
-            timeout, (int, float)) else 300
+        self._cache = {}
 
-    def __setitem__(self, key, value):
-        containsKey = 1 if key in self else 0
-        if len(self) - containsKey >= self._capacity:
-            last = self.popitem(last=False)
-            # print 'remove:', last
-        if containsKey:
-            del self[key]
-            # print 'set:', (key, value)
+    def get_single(self, key):
+
+        res = self._cache.get(key, None)
+        if res is not None:
+            return res
         else:
-            pass
-            # print 'add:', (key, value)
-        OrderedDict.__setitem__(self, key, value)
+            return False
+
+    def set_singel(self, key, value):
+        """if self.Model is 'LRU':
+            expire = None
+        elif self.Model is 'LRUTTL':
+            expire = self._normal_timeout(timeout)
+
+        else:"""
+        expire = None
+
+        self._cache[key] = (pickle.dumps(value,
+                                         pickle.HIGHEST_PROTOCOL), expire)
+        return True
+
+    def _prune(self):
+
+        tempiter = (key for key, (expire, value) in self._cache.iteritems(
+        ) if expire != 0 and expire <= time.time())
+        return [self._cache.pop(_, None) for _ in tempiter]
+
+    def delete_single(self, key): pass
 
     def _normal_timeout(self, timeout):
         import time
@@ -191,14 +193,6 @@ class DictCache_LRUTTL(BaseCacheClass):
             expire = time.time() + self.default_timeout
 
         return expire
-
-    def _prune(self):
-
-        tempiter = (key for key, (expire, value) in self._cache.iteritems(
-        ) if expire != 0 and expire <= time.time())
-        return [self._cache.pop(_, None) for _ in tempiter]
-
-    def delete_single(self, key): pass
 
 
 if __name__ == '__main__':
